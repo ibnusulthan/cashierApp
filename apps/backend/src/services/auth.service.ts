@@ -1,11 +1,9 @@
-import { Database } from '../config/prisma';
+import prisma from '../prisma';
 import {
   BadRequestError,
   ConflictError,
   NotFoundError,
 } from '../utils/httpError';
-
-import type { PrismaClient } from '@prisma/client';
 
 /**
  * @class AuthService
@@ -15,13 +13,6 @@ import type { PrismaClient } from '@prisma/client';
  * melakukan validasi data. Service TIDAK BOLEH tahu tentang `req` dan `res` dari Express.
  */
 export class AuthService {
-  private prisma: PrismaClient;
-
-  constructor() {
-    // Menginisialisasi koneksi Prisma melalui instance singleton
-    this.prisma = new Database().getInstance();
-  }
-
   /**
    * Logika untuk proses login pengguna.
    * @returns {Promise<{ message: string }>}
@@ -32,7 +23,7 @@ export class AuthService {
       throw new BadRequestError('Email wajib diisi');
     }
 
-    const user = await this.prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: {
         email,
       },
@@ -56,7 +47,7 @@ export class AuthService {
       throw new BadRequestError('Email wajib diisi');
     }
 
-    const userExist = await this.prisma.user.findUnique({
+    const userExist = await prisma.user.findUnique({
       where: {
         email,
       },
