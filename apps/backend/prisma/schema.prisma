@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,13 +7,129 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN
+  CASHIER
+}
+
+enum PaymentType {
+  CASH
+  DEBIT
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  CANCELED
+}
+
 model User {
-  id       Int     @id @default(autoincrement())
-  username String?
-  email    String  @unique
+  id        String   @id @default(uuid())
+  name      String
+  username  String   @unique
+  password  String
+  role      UserRole
+  isActive  Boolean  @default(true)
+  deletedAt DateTime?
+
+  shifts        Shift[]
+  transactions  Transaction[]
 
   createdAt DateTime @default(now())
-  updateAt  DateTime @updatedAt
+  updatedAt DateTime @updatedAt
+}
 
-  @@map("users")
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+
+  products  Product[]
+
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id            String   @id @default(uuid())
+  categoryId    String
+  name          String
+  price         Int
+  stock         Int
+
+  imageUrl      String?
+  imagePublicId String?
+
+  category        Category @relation(fields: [categoryId], references: [id])
+  transactionItems TransactionItem[]
+  stockHistories  StockHistory[]
+
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Shift {
+  id            String   @id @default(uuid())
+  cashierId     String
+
+  cashStart     Int
+  cashEnd       Int?
+  expectedCash  Int?
+  difference    Int?
+  isMismatch    Boolean  @default(false)
+  totalTransactions Int?
+
+  openedAt      DateTime @default(now())
+  closedAt      DateTime?
+
+  cashier       User @relation(fields: [cashierId], references: [id])
+  transactions  Transaction[]
+
+  createdAt DateTime @default(now())
+}
+
+model Transaction {
+  id           String      @id @default(uuid())
+  shiftId      String
+  cashierId    String
+
+  totalAmount  Int
+  paidAmount   Int
+  changeAmount Int?
+
+  paymentType  PaymentType
+  debitCardNo  String?
+
+  status       TransactionStatus @default(PENDING)
+
+  shift        Shift @relation(fields: [shiftId], references: [id])
+  cashier      User  @relation(fields: [cashierId], references: [id])
+  items        TransactionItem[]
+
+  createdAt DateTime @default(now())
+}
+
+model TransactionItem {
+  id            String @id @default(uuid())
+  transactionId String
+  productId     String
+
+  quantity      Int
+  price         Int
+
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  product       Product     @relation(fields: [productId], references: [id])
+}
+
+model StockHistory {
+  id        String @id @default(uuid())
+  productId String
+
+  change    Int
+  reason    String
+
+  product   Product @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
 }
