@@ -1,14 +1,6 @@
 import { api } from "./axios";
 import { setCookie, deleteCookie } from "cookies-next";
-
-export type LoginResponse = {
-  token: string;
-  user: {
-    id: string;
-    name: string;
-    role: "ADMIN" | "CASHIER";
-  };
-};
+import { LoginResponse } from "@/types/auth";
 
 export const login = async (username: string, password: string) => {
   const res = await api.post<LoginResponse>("/auth/login", {

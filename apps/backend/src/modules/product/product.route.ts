@@ -7,6 +7,7 @@ import {
   updateProduct,
   deleteProduct,
   getProducts,
+  getStockHistories
 } from "./product.controller";
 import { uploadProductImage } from "@/middlewares/upload.middleware";
 
@@ -22,7 +23,7 @@ router.post(
   createProduct
 );
 
-router.put(
+router.patch(
   "/:id",
   authMiddleware,
   authorize([UserRole.ADMIN]),
@@ -35,6 +36,13 @@ router.delete(
   authMiddleware,
   authorize([UserRole.ADMIN]),
   deleteProduct
+);
+
+router.get(
+  "/logs/stock", 
+  authMiddleware, 
+  authorize([UserRole.ADMIN]), 
+  getStockHistories
 );
 
 export default router;

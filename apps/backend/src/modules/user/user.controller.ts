@@ -4,12 +4,25 @@ import {
   createUserService,
   deactivateUserService,
   getActiveUsersService,
+  updateUserService
 } from "./user.service";
 import { createUserSchema, userIdParamSchema } from "./user.validation";
+import { updateUserSchema } from "./user.validation";
 
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
-  const users = await getActiveUsersService();
-  res.json(users);
+  const { search, page, limit } = req.query;
+
+  // Pastikan konversi ke Number menghasilkan angka valid, jika tidak gunakan default
+  const pageNum = parseInt(page as string) || 1;
+  const limitNum = parseInt(limit as string) || 10;
+
+  const result = await getActiveUsersService({
+    search: search as string,
+    page: pageNum,
+    limit: limitNum,
+  });
+  
+  res.json(result);
 };
 
 export const createUser = async (req: Request, res: Response): Promise<void> => {
@@ -66,4 +79,18 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
   await deactivateUserService(parsed.data.id);
   res.json({ message: "User deactivated (soft delete)" });
+};
+
+export const updateUser = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  
+  const parsed = updateUserSchema.safeParse(req.body);
+  
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
+    return;
+  }
+
+  const result = await updateUserService(id, req.body);
+  res.json({ message: "User updated successfully", user: result });
 };

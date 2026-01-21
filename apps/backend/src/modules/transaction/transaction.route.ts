@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authMiddleware } from "@/middlewares/auth.middleware";
 import { authorize } from "@/middlewares/role.middleware";
 import { UserRole } from "@prisma/client";
-import { createTransaction, completeTransaction, cancelTransaction, getTransactionsByActiveShift, getAllTransactions } from "./transaction.controller";
+import { createTransaction, completeTransaction, cancelTransaction, getTransactionsByActiveShift, getAllTransactions, getDailyItemReport, getDashboardSummary } from "./transaction.controller";
 
 const router = Router();
 
@@ -40,5 +40,17 @@ router.get(
   authorize([UserRole.ADMIN]),
   getAllTransactions
 );
+
+router.get(
+  "/reports/daily", 
+  authMiddleware, 
+  authorize([UserRole.ADMIN]), 
+  getDailyItemReport);
+
+router.get(
+  "/reports/summary", 
+  authMiddleware, 
+  authorize([UserRole.ADMIN]), 
+  getDashboardSummary);
 
 export default router;

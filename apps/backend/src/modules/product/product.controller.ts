@@ -1,17 +1,65 @@
 import { Request, Response } from 'express';
 import prisma from '@/prisma';
+import { Prisma } from '@prisma/client'; // Import Prisma untuk akses tipe QueryMode
 import { createProductSchema, updateProductSchema } from './product.validation';
 import cloudinary from '@/utils/cloudinary';
 
-export const getProducts = async (req: Request, res: Response): Promise<void> => {
-  const products = await prisma.product.findMany({
-    where: { deletedAt: null },
-    include: { category: true },
-  });
-  res.json(products);
+export const getProducts = async (req: Request, res: Response) => {
+  const { search, category, sort, page = "1", limit = "10" } = req.query;
+
+  const pageNum = parseInt(String(page)) || 1;
+  const limitNum = parseInt(String(limit)) || 10;
+  const skip = (pageNum - 1) * limitNum;
+
+  // Definisikan tipe condition secara eksplisit agar TS tidak komplain
+  const whereCondition: Prisma.ProductWhereInput = {
+    deletedAt: null,
+    ...(search && {
+      name: {
+        contains: String(search),
+        mode: 'insensitive' as Prisma.QueryMode, // Casting ke QueryMode
+      },
+    }),
+    ...(category && {
+      categoryId: String(category),
+    }),
+  };
+
+  try {
+    const [products, totalCount] = await Promise.all([
+      prisma.product.findMany({
+        where: whereCondition,
+        orderBy: {
+          // Pastikan sort key sesuai dengan logic frontend (price_asc/price_desc)
+          ...(sort === 'price_asc' && { price: 'asc' }),
+          ...(sort === 'price_desc' && { price: 'desc' }),
+          ...(sort === 'newest' || !sort ? { createdAt: 'desc' } : {}),
+        },
+        include: { category: true },
+        skip: skip,
+        take: limitNum,
+      }),
+      prisma.product.count({ where: whereCondition }),
+    ]);
+
+    res.json({
+      data: products,
+      meta: {
+        total: totalCount,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Gagal mengambil data produk" });
+  }
 };
 
-export const createProduct = async (req: Request, res: Response): Promise<void> => {
+export const createProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const parsed = createProductSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -22,7 +70,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
     return;
   }
 
-  const { name, price, stock, categoryId } =parsed.data;
+  const { name, price, stock, categoryId } = parsed.data;
 
   // Pastikan category ada & tidak dihapus
   const category = await prisma.category.findUnique({
@@ -62,6 +110,12 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       categoryId,
       imageUrl: file?.path || null,
       imagePublicId: file?.filename || null,
+      stockHistories: {
+        create: {
+          change: stock,
+          reason: 'Initial stock',
+        },
+      },
     },
   });
 
@@ -71,7 +125,10 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
   });
 };
 
-export const updateProduct = async (req: Request, res: Response): Promise<void> => {
+export const updateProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { id } = req.params;
 
   const parsed = updateProductSchema.safeParse(req.body);
@@ -92,7 +149,29 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // Jika ada categoryId baru, cek dulu
+  const newName = parsed.data.name?.trim();
+  const newCategoryId = parsed.data.categoryId || product.categoryId;
+
+  if (newName) {
+    const duplicate = await prisma.product.findFirst({
+      where: {
+        id: { not: id }, // Cari produk selain dirinya sendiri
+        deletedAt: null,
+        categoryId: newCategoryId,
+        name: {
+          equals: newName,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (duplicate) {
+      res.status(400).json({ message: 'Product with this name already exists in this category' });
+      return;
+    }
+  }
+
+  // Jika ada categoryId baru, cek validitasnya
   if (parsed.data.categoryId) {
     const category = await prisma.category.findUnique({
       where: { id: parsed.data.categoryId },
@@ -105,21 +184,34 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
   }
 
   const file = req.file as any;
-
   if (file && product.imagePublicId) {
     await cloudinary.uploader.destroy(product.imagePublicId);
   }
 
+  // audit stock logic
+  let stockChange = 0;
+  if (parsed.data.stock !== undefined) {
+    stockChange = parsed.data.stock - product.stock;
+  }
+
   const updated = await prisma.product.update({
     where: { id },
-    data: { 
-        ...parsed.data, 
-        name: parsed.data.name?.trim(),
-        ...(file && {
-            imageUrl: file.path,
-            imagePublicId: file.filename,
-        }),
-      },
+    data: {
+      ...parsed.data,
+      name: newName,
+      ...(file && {
+        imageUrl: file.path,
+        imagePublicId: file.filename,
+      }),
+      ...(stockChange !== 0 && {
+        stockHistories: {
+          create: {
+            change: stockChange,
+            reason: 'Manual update by Admin',
+          }
+        }
+      })
+    },
   });
 
   res.json({
@@ -128,7 +220,10 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
   });
 };
 
-export const deleteProduct = async (req: Request, res: Response): Promise<void> => {
+export const deleteProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { id } = req.params;
 
   const product = await prisma.product.findUnique({
@@ -146,4 +241,42 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
   });
 
   res.json({ message: 'Product soft deleted' });
+};
+
+export const getStockHistories = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { productId, startDate, endDate } = req.query;
+
+    const histories = await prisma.stockHistory.findMany({
+      where: {
+        ...(productId && { productId: String(productId) }),
+        ...(startDate || endDate
+          ? {
+              createdAt: {
+                gte: startDate ? new Date(startDate as string) : undefined,
+                lte: endDate ? new Date(endDate as string) : undefined,
+              },
+            }
+          : {}),
+      },
+      include: {
+        product: {
+          select: {
+            name: true,
+            imageUrl: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    res.json({
+      message: "Stock histories fetched successfully",
+      data: histories
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch stock histories" });
+  }
 };

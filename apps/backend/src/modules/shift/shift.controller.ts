@@ -87,6 +87,7 @@ export const closeShift = async (
   }
 };
 
+
 export const getActiveShift = async (req: Request, res: Response) => {
   try {
     const cashierId = req.user?.userId;

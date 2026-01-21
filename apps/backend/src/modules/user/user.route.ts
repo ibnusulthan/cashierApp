@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authMiddleware } from "@/middlewares/auth.middleware";
 import { authorize } from "@/middlewares/role.middleware";
 import { UserRole } from "@prisma/client";
-import { createUser, deleteUser, getUsers } from "./user.controller";
+import { createUser, deleteUser, getUsers, updateUser } from "./user.controller";
 
 const router = Router();
 
@@ -26,5 +26,11 @@ router.delete(
   authorize([UserRole.ADMIN]),
   deleteUser
 );
+
+router.patch(
+  "/:id", 
+  authMiddleware, 
+  authorize([UserRole.ADMIN]), 
+  updateUser);
 
 export default router;

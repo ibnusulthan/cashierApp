@@ -8,8 +8,11 @@ import {
   completeTransactionService,
   cancelTransactionService,
   getTransactionsByActiveShift as getTransactionsByActiveShiftService,
-  getAllTransactionsService
+  getAllTransactionsService,
+  getDailyItemSalesService,
+  getAdminDashboardSummaryService
 } from './transaction.service';
+
 
 export const createTransaction = async (
   req: Request,
@@ -38,6 +41,7 @@ export const createTransaction = async (
       transaction: result,
     });
   } catch (error: any) {
+    console.error("ERROR ASLI DI BACKEND:", error)
     if (error.message === 'NO_ACTIVE_SHIFT') {
       res.status(400).json({ message: 'No active shift found' });
       return;
@@ -199,6 +203,8 @@ export const getTransactionsByActiveShift = async (
   try {
     const cashierId = req.user?.userId;
 
+    console.log("LOG DIAGNOSIS KASIR ID", cashierId);
+
     if (!cashierId) {
       res.status(401).json({ message: 'Unauthorized' });
       return;
@@ -248,5 +254,41 @@ export const getAllTransactions = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+/**
+ * Endpoint: GET /api/transactions/reports/daily?date=2023-10-27
+ */
+export const getDailyItemReport = async (req: Request, res: Response) => {
+  try {
+    const { date } = req.query;
+    if (!date) {
+      res.status(400).json({ message: "Date parameter is required (YYYY-MM-DD)" });
+      return;
+    }
+
+    const report = await getDailyItemSalesService(date as string);
+    res.json({
+      message: `Daily report for ${date}`,
+      data: report
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to generate daily report" });
+  }
+};
+
+/**
+ * Endpoint: GET /api/transactions/reports/summary
+ */
+export const getDashboardSummary = async (req: Request, res: Response) => {
+  try {
+    const summary = await getAdminDashboardSummaryService();
+    res.json({
+      message: "Admin dashboard summary",
+      data: summary
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to fetch dashboard summary" });
   }
 };

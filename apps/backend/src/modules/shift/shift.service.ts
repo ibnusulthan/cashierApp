@@ -44,22 +44,42 @@ export const closeShiftService = async (shiftId: string, cashEnd: number) => {
     });
 
     if (!shift?.transactions.length) {
-        console.warn(`Closing shift ${shiftId} with no transactions`)
+      console.warn(`Closing shift ${shiftId} with no transactions`);
     }
 
     if (!shift) {
       throw new Error('Shift not found');
     }
 
+    const aggregation = await tx.transaction.aggregate({
+      where: {
+        shiftId,
+        status: 'COMPLETED',
+      },
+      _sum: {
+        totalAmount: true,
+      },
+      _count: true,
+    });
+
+    // expected cash
+    const cashAggregation = await tx.transaction.aggregate({
+      where: {
+        shiftId,
+        status: 'COMPLETED',
+        paymentType: 'CASH',
+      },
+      _sum: {
+        totalAmount: true, // Untuk Cash, totalAmount yang masuk ke laci
+      },
+    });
+
     // Hitung total semua transaksi
-    const totalTransactions = shift.transactions
-      .filter((t) => t.status === 'COMPLETED')
-      .reduce((sum, t) => sum + t.totalAmount, 0);
+    const totalTransactions = aggregation._sum.totalAmount || 0;
+    const totalTransactionsCount = aggregation._count || 0;
 
     // Hitung expected cash
-    const totalCashFromTransactions = shift.transactions
-      .filter((t) => t.paymentType === 'CASH' && t.status === 'COMPLETED')
-      .reduce((sum, t) => sum + t.paidAmount - (t.changeAmount || 0), 0);
+    const totalCashFromTransactions = cashAggregation._sum.totalAmount || 0;
 
     const expectedCash = shift.cashStart + totalCashFromTransactions;
 
@@ -77,7 +97,7 @@ export const closeShiftService = async (shiftId: string, cashEnd: number) => {
         expectedCash,
         difference,
         isMismatch,
-        totalTransactions,
+        totalTransactions: totalTransactionsCount,
         closedAt: new Date(),
       },
     });
@@ -93,6 +113,7 @@ export const getActiveShiftByCashier = async (cashierId: string) => {
       closedAt: null,
     },
     include: {
+      cashier: { select: { name: true } },
       transactions: {
         select: {
           id: true,
@@ -106,13 +127,24 @@ export const getActiveShiftByCashier = async (cashierId: string) => {
   });
 };
 
-export const getAllShiftsService = async (options: GetAllShiftsOptions = {}) => {
-  const { cashierId, startDate, endDate, isMismatch, sortBy, sortOrder, page = 1, pageSize = 20 } = options;
+export const getAllShiftsService = async (
+  options: GetAllShiftsOptions = {}
+) => {
+  const {
+    cashierId,
+    startDate,
+    endDate,
+    isMismatch,
+    sortBy,
+    sortOrder,
+    page = 1,
+    pageSize = 20,
+  } = options;
 
   const where: any = {};
 
   if (cashierId) where.cashierId = cashierId;
-  if (typeof isMismatch === "boolean") where.isMismatch = isMismatch;
+  if (typeof isMismatch === 'boolean') where.isMismatch = isMismatch;
   if (startDate || endDate) {
     where.openedAt = {};
     if (startDate) where.openedAt.gte = new Date(startDate);
@@ -120,8 +152,8 @@ export const getAllShiftsService = async (options: GetAllShiftsOptions = {}) => 
   }
 
   const orderBy: any = {};
-  if (sortBy) orderBy[sortBy] = sortOrder || "asc";
-  else orderBy.openedAt = "desc";
+  if (sortBy) orderBy[sortBy] = sortOrder || 'asc';
+  else orderBy.openedAt = 'desc';
 
   const skips = (page - 1) * pageSize;
 
@@ -150,16 +182,21 @@ export const getAllShiftsService = async (options: GetAllShiftsOptions = {}) => 
   return { totalCount, shifts };
 };
 
-
 interface GetShiftDetailOptions {
   shiftId: string;
   page?: number;
   pageSize?: number;
-  statusFilter?: "PENDING" | "COMPLETED" | "CANCELED";
-  paymentFilter?: "CASH" | "DEBIT";
+  statusFilter?: 'PENDING' | 'COMPLETED' | 'CANCELED';
+  paymentFilter?: 'CASH' | 'DEBIT';
 }
 export const getShiftDetailService = async (options: GetShiftDetailOptions) => {
-  const { shiftId, page = 1, pageSize = 10, statusFilter, paymentFilter } = options;
+  const {
+    shiftId,
+    page = 1,
+    pageSize = 10,
+    statusFilter,
+    paymentFilter,
+  } = options;
   const skip = (page - 1) * pageSize;
 
   const shift = await prisma.shift.findUnique({
@@ -182,7 +219,7 @@ export const getShiftDetailService = async (options: GetShiftDetailOptions) => {
       where,
       skip,
       take: pageSize,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       include: {
         items: {
           include: {
