@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useShifts, useUsers } from '@/hooks/useAdminDashboard.ts';
+import { useState, useMemo, useEffect } from 'react';
+import { useShifts, useUsers } from '@/hooks/useAdminDashboard';
 import { 
   AlertTriangle, CheckCircle2, User, Loader2, TrendingDown, TrendingUp,
   ChevronLeft, ChevronRight, SortAsc, SortDesc, Eye, X, Clock, Receipt, UserCircle, Wallet, CreditCard
@@ -9,6 +9,7 @@ import {
 import { formatCurrency } from '@/lib/utils';
 import { api } from '@/lib/axios';
 import { toast } from 'react-hot-toast';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 
 const formatDateNative = (dateString: string | null) => {
   if (!dateString) return '-';
@@ -26,23 +27,42 @@ const formatDateNative = (dateString: string | null) => {
 };
 
 export default function ShiftReportsPage() {
-  const [page, setPage] = useState(1);
-  const [cashierId, setCashierId] = useState('');
-  const [isMismatch, setIsMismatch] = useState<string>('all');
-  const [sortBy, setBy] = useState<'openedAt' | 'totalTransactions'>('openedAt');
-  const [sortOrder, setOrder] = useState<'asc' | 'desc'>('desc');
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // URL States (Ambil dari URL jika ada, jika tidak pakai default)
+  const currentPage = parseInt(searchParams.get('page') || '1');
+  const currentCashier = searchParams.get('cashierId') || '';
+  const currentMismatch = searchParams.get('isMismatch') || 'all';
+  const currentSortBy = (searchParams.get('sortBy') as any) || 'openedAt';
+  const currentSortOrder = (searchParams.get('sortOrder') as any) || 'desc';
 
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [selectedShift, setSelectedShift] = useState<any>(null);
 
-  const { data: usersData } = useUsers();
+  // FIX: Ambil semua kasir (Limit 100 agar tidak terpotong pagination)
+  const { data: usersData } = useUsers({ limit: 100 });
+
   const { data, isLoading, isFetching } = useShifts({
-    page,
-    cashierId: cashierId || undefined,
-    isMismatch: isMismatch === 'true' ? true : isMismatch === 'false' ? false : undefined,
-    sortBy,
-    sortOrder,
+    page: currentPage,
+    cashierId: currentCashier || undefined,
+    isMismatch: currentMismatch === 'true' ? true : currentMismatch === 'false' ? false : undefined,
+    sortBy: currentSortBy,
+    sortOrder: currentSortOrder,
   });
+
+  // Fungsi sinkronisasi URL
+  const updateFilters = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value && value !== 'all') params.set(key, value);
+      else params.delete(key);
+    });
+    // Reset ke page 1 jika filter berubah kecuali page itu sendiri
+    if (!updates.page) params.set('page', '1');
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   const handleRowClick = async (id: string) => {
     setIsModalLoading(true);
@@ -56,19 +76,12 @@ export default function ShiftReportsPage() {
     }
   };
 
-  // Optimasi Kalkulasi Statistik di Modal
   const stats = useMemo(() => {
     if (!selectedShift?.transactions) return { cashTotal: 0, debitTotal: 0, cashCount: 0, debitCount: 0 };
-    
     return selectedShift.transactions.reduce((acc: any, tx: any) => {
       if (tx.status === 'COMPLETED') {
-        if (tx.paymentType === 'CASH') {
-          acc.cashTotal += tx.totalAmount;
-          acc.cashCount += 1;
-        } else if (tx.paymentType === 'DEBIT') {
-          acc.debitTotal += tx.totalAmount;
-          acc.debitCount += 1;
-        }
+        if (tx.paymentType === 'CASH') { acc.cashTotal += tx.totalAmount; acc.cashCount += 1; }
+        else if (tx.paymentType === 'DEBIT') { acc.debitTotal += tx.totalAmount; acc.debitCount += 1; }
       }
       return acc;
     }, { cashTotal: 0, debitTotal: 0, cashCount: 0, debitCount: 0 });
@@ -78,91 +91,134 @@ export default function ShiftReportsPage() {
   const totalCount = data?.shifts?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / 20);
 
-  if (isLoading) return <div className="flex h-96 items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={40} /></div>;
+  if (isLoading && !data) return (
+    <div className="flex h-96 items-center justify-center flex-col gap-4">
+      <Loader2 className="animate-spin text-blue-600" size={40} />
+      <p className="font-black uppercase italic text-slate-400 tracking-tighter">Loading Shift Data...</p>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Laporan Shift & Kas</h1>
-          <p className="text-slate-500">Monitoring selisih uang dan aktivitas kasir.</p>
+          <h1 className="text-2xl font-black text-slate-800 uppercase italic tracking-tight">Laporan Shift & Kas</h1>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Monitoring selisih uang dan aktivitas kasir.</p>
         </div>
       </div>
 
       {/* FILTER BAR */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-wrap gap-4 items-end">
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase text-slate-400">Pilih Kasir</label>
-          <select className="block w-48 p-2 bg-slate-50 border rounded-lg text-sm outline-none" value={cashierId} onChange={(e) => setCashierId(e.target.value)}>
+      <div className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm flex flex-wrap gap-4 items-end">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Pilih Kasir</label>
+          <select 
+            className="block w-48 p-3 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500" 
+            value={currentCashier} 
+            onChange={(e) => updateFilters({ cashierId: e.target.value })}
+          >
             <option value="">Semua Kasir</option>
             {usersData?.data?.map((u: any) => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
         </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase text-slate-400">Status Selisih</label>
-          <select className="block w-40 p-2 bg-slate-50 border rounded-lg text-sm outline-none" value={isMismatch} onChange={(e) => setIsMismatch(e.target.value)}>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Status Selisih</label>
+          <select 
+            className="block w-40 p-3 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500" 
+            value={currentMismatch} 
+            onChange={(e) => updateFilters({ isMismatch: e.target.value })}
+          >
             <option value="all">Semua Status</option>
             <option value="true">Mismatch</option>
             <option value="false">Match</option>
           </select>
         </div>
-        <div className="space-y-1 ml-auto">
+
+        <div className="space-y-2 ml-auto">
           <div className="flex gap-2">
-            <select className="p-2 bg-slate-50 border rounded-lg text-sm outline-none" value={sortBy} onChange={(e) => setBy(e.target.value as any)}>
+            <select 
+              className="p-3 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500" 
+              value={currentSortBy} 
+              onChange={(e) => updateFilters({ sortBy: e.target.value })}
+            >
               <option value="openedAt">Waktu Buka</option>
               <option value="totalTransactions">Jml Transaksi</option>
             </select>
-            <button onClick={() => setOrder(sortOrder === 'asc' ? 'desc' : 'asc')} className="p-2 border rounded-lg bg-white">
-              {sortOrder === 'asc' ? <SortAsc size={18} /> : <SortDesc size={18} />}
+            <button 
+              onClick={() => updateFilters({ sortOrder: currentSortOrder === 'asc' ? 'desc' : 'asc' })} 
+              className="p-3 border-2 border-slate-50 rounded-2xl bg-white hover:bg-slate-50 transition-all shadow-sm"
+            >
+              {currentSortOrder === 'asc' ? <SortAsc size={20} /> : <SortDesc size={20} />}
             </button>
           </div>
         </div>
       </div>
 
       {/* TABLE */}
-      <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden ${isFetching ? 'opacity-50' : ''}`}>
+      <div className={`bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden transition-all ${isFetching ? 'opacity-60' : ''}`}>
         <table className="w-full text-left">
-          <thead className="bg-slate-50 border-b">
-            <tr className="text-xs font-bold text-slate-500 uppercase">
-              <th className="px-6 py-4">Kasir & Waktu Buka</th>
-              <th className="px-6 py-4 text-right">Omzet (Gross)</th>
-              <th className="px-6 py-4 text-right">Target Sistem</th>
-              <th className="px-6 py-4 text-right">Uang Fisik</th>
-              <th className="px-6 py-4 text-right">Selisih</th>
-              <th className="px-6 py-4 text-center">Aksi</th>
+          <thead className="bg-slate-50/50 border-b border-slate-100">
+            <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <th className="px-8 py-6">Kasir & Waktu Buka</th>
+              <th className="px-8 py-6 text-right">Omzet (Gross)</th>
+              <th className="px-8 py-6 text-right">Target Sistem</th>
+              <th className="px-8 py-6 text-right">Uang Fisik</th>
+              <th className="px-8 py-6 text-right">Selisih</th>
+              <th className="px-8 py-6 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {shifts.map((shift: any) => {
-              // Hitung Omzet di Tabel (Cash + Debit)
               const totalRevenue = shift.transactions?.reduce((acc: number, tx: any) => tx.status === 'COMPLETED' ? acc + tx.totalAmount : acc, 0) || 0;
-              
               return (
                 <tr key={shift.id} className="hover:bg-blue-50/30 transition-colors cursor-pointer group" onClick={() => handleRowClick(shift.id)}>
-                  <td className="px-6 py-4">
-                    <p className="font-bold text-slate-700">{shift.cashier.name}</p>
-                    <p className="text-[10px] text-slate-400">{formatDateNative(shift.openedAt)}</p>
+                  <td className="px-8 py-5">
+                    <p className="font-black text-slate-800 uppercase italic tracking-tighter">{shift.cashier.name}</p>
+                    <p className="text-[10px] text-slate-400 font-bold">{formatDateNative(shift.openedAt)}</p>
                   </td>
-                  <td className="px-6 py-4 text-right text-sm font-bold text-blue-600">{formatCurrency(totalRevenue)}</td>
-                  <td className="px-6 py-4 text-right text-sm font-medium">{formatCurrency(shift.expectedCash)}</td>
-                  <td className="px-6 py-4 text-right text-sm font-medium">{formatCurrency(shift.cashEnd)}</td>
-                  <td className="px-6 py-4 text-right font-bold text-sm">
+                  <td className="px-8 py-5 text-right text-sm font-black text-blue-600 italic">{formatCurrency(totalRevenue)}</td>
+                  <td className="px-8 py-5 text-right text-sm font-bold text-slate-600">{formatCurrency(shift.expectedCash)}</td>
+                  <td className="px-8 py-5 text-right text-sm font-bold text-slate-600">{formatCurrency(shift.cashEnd)}</td>
+                  <td className="px-8 py-5 text-right font-black text-sm">
                     {shift.difference !== null ? (
                         <span className={shift.difference < 0 ? 'text-red-600' : shift.difference > 0 ? 'text-amber-600' : 'text-green-600'}>
                           {formatCurrency(shift.difference)}
                         </span>
                     ) : '-'}
                   </td>
-                  <td className="px-6 py-4 text-center">
-                    <Eye size={18} className="mx-auto text-slate-400 group-hover:text-blue-600" />
+                  <td className="px-8 py-5 text-center">
+                    <div className="p-2 bg-slate-50 rounded-xl inline-block group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
+                      <Eye size={18} />
+                    </div>
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+
+        {/* PAGINATION (PENTING!) */}
+        <div className="flex items-center justify-between px-8 py-6 bg-slate-50/50 border-t border-slate-100">
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Page {currentPage} of {totalPages || 1}</p>
+          <div className="flex gap-2">
+            <button
+              disabled={currentPage <= 1}
+              onClick={() => updateFilters({ page: String(currentPage - 1) })}
+              className="p-2 bg-white border border-slate-200 rounded-xl disabled:opacity-30"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => updateFilters({ page: String(currentPage + 1) })}
+              className="p-2 bg-white border border-slate-200 rounded-xl disabled:opacity-30"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* DETAIL MODAL */}

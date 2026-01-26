@@ -40,7 +40,6 @@ export const getStockLogs = async (): Promise<{ data: StockHistory[] }> => {
   return res.data;
 };
 
-// Tambahkan interface jika belum ada
 export interface Category {
   id: string;
   name: string;

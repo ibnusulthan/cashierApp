@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useUsers } from '@/hooks/useAdminDashboard.ts'; 
+import { useUsers } from '@/hooks/useAdminDashboard'; 
 import { Search, UserPlus, Edit, Trash2, Loader2, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { api } from '@/lib/axios';
 import { toast } from 'react-hot-toast';
 import { EditCashierModal } from '@/components/common/EditCashierModal';
-import { AddCashierModal } from '@/components/common/AddCashierModal'; // Pastikan import ini ada
+import { AddCashierModal } from '@/components/common/AddCashierModal';
 
 export default function CashierManagementPage() {
   const router = useRouter();

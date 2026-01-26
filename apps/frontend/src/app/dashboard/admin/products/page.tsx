@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useProducts, useCategories } from '@/hooks/useAdminDashboard.ts';
-import { Plus, Minus, Trash2, Edit, Search, RotateCcw, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useProducts, useCategories } from '@/hooks/useAdminDashboard';
+import { Plus, Minus, Trash2, Edit, Search, RotateCcw, Loader2, ChevronLeft, ChevronRight, Tag } from 'lucide-react';
 import { api } from '@/lib/axios';
 import { toast } from 'react-hot-toast';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { AddProductModal } from '@/components/common/Modal';
 import { EditProductModal } from '@/components/common/EditProductModal';
+import CategoryManagementModal from '@/components/common/CategoryManagementModal';
 import { Products } from '@/types/interface';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -23,8 +24,11 @@ export default function ProductManagementPage() {
   const currentSort = searchParams.get('sort') || 'newest';
   const currentPage = parseInt(searchParams.get('page') || '1');
 
-  // 1. LOCAL STATE UNTUK SEARCH (Agar mengetik terasa instan)
   const [localSearch, setLocalSearch] = useState(currentSearch);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Products | null>(null);
+  const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
   const queryParams = {
     page: currentPage,
@@ -39,21 +43,16 @@ export default function ProductManagementPage() {
   const meta = data?.meta;
 
   const { data: categories } = useCategories();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Products | null>(null);
-  const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
-  // 2. DEBOUNCE SEARCH LOGIC
   useEffect(() => {
     const timer = setTimeout(() => {
       if (localSearch !== currentSearch) {
         updateFilters({ search: localSearch || null });
       }
-    }, 500); // Tunggu 0.5 detik setelah berhenti mengetik
+    }, 500);
     return () => clearTimeout(timer);
   }, [localSearch]);
 
-  // Sync local search jika URL di-reset (tombol reset)
   useEffect(() => {
     setLocalSearch(currentSearch);
   }, [currentSearch]);
@@ -71,7 +70,6 @@ export default function ProductManagementPage() {
   const handleUpdateStock = (id: string, newStock: number) => {
     const validatedStock = Math.max(0, newStock);
 
-    // Optimistic Update
     queryClient.setQueryData(['products', queryParams], (old: any) => {
       if (!old) return old;
       return {
@@ -91,11 +89,10 @@ export default function ProductManagementPage() {
     }, 500);
   };
 
-  // UI Loading awal saja (saat data benar-benar kosong)
   if (isLoading && !data) return (
     <div className="p-20 text-center flex flex-col items-center gap-4">
       <Loader2 className="animate-spin text-blue-600 w-10 h-10" />
-      <p className="text-slate-500 font-medium">Memuat data produk...</p>
+      <p className="text-slate-500 font-medium font-black italic uppercase tracking-tighter">Memuat data produk...</p>
     </div>
   );
 
@@ -104,15 +101,24 @@ export default function ProductManagementPage() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Stock Management</h1>
-          <p className="text-sm text-slate-500">Total {meta?.total || 0} produk tersedia</p>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic uppercase font-black">Product Management</h1>
+          <p className="text-sm text-slate-500 font-bold uppercase tracking-widest text-[10px]">Total {meta?.total || 0} produk tersedia</p>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-blue-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all active:scale-95 font-semibold"
-        >
-          <Plus size={18} /> Tambah Produk
-        </button>
+        
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="bg-white text-slate-600 border border-slate-200 px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-slate-50 transition-all active:scale-95 font-semibold text-sm shadow-sm"
+          >
+            <Tag size={18} /> Kategori
+          </button>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="bg-blue-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all active:scale-95 font-semibold text-sm"
+          >
+            <Plus size={18} /> Tambah Produk
+          </button>
+        </div>
       </div>
 
       {/* FILTERS */}
@@ -122,7 +128,7 @@ export default function ProductManagementPage() {
           <input 
             type="text"
             placeholder="Cari produk..."
-            className="w-full pl-10 pr-10 py-2 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            className="w-full pl-10 pr-10 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
           />
@@ -132,7 +138,7 @@ export default function ProductManagementPage() {
         </div>
         
         <select 
-          className="bg-slate-50 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+          className="bg-slate-50 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
           value={currentCategory}
           onChange={(e) => updateFilters({ category: e.target.value })}
         >
@@ -143,7 +149,7 @@ export default function ProductManagementPage() {
         </select>
 
         <select 
-          className="bg-slate-50 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+          className="bg-slate-50 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
           value={currentSort}
           onChange={(e) => updateFilters({ sort: e.target.value })}
         >
@@ -154,7 +160,7 @@ export default function ProductManagementPage() {
 
         <button 
           onClick={() => router.push(pathname, { scroll: false })}
-          className="flex items-center justify-center gap-2 text-slate-400 hover:text-red-500 text-sm font-medium transition-colors"
+          className="flex items-center justify-center gap-2 text-slate-400 hover:text-red-500 text-[10px] font-black uppercase tracking-widest transition-colors"
         >
           <RotateCcw size={16} /> Reset Filter
         </button>
@@ -165,7 +171,7 @@ export default function ProductManagementPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50/50 border-b border-slate-100">
-              <tr className="text-slate-600 font-semibold text-left">
+              <tr className="text-slate-400 font-black text-[10px] uppercase tracking-[0.2em] text-left">
                 <th className="px-6 py-4">Info Produk</th>
                 <th className="px-6 py-4 text-center">Update Stok</th>
                 <th className="px-6 py-4 text-right">Aksi</th>
@@ -176,12 +182,17 @@ export default function ProductManagementPage() {
                 <tr key={product.id} className="hover:bg-slate-50/30 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-4">
-                      <img src={product.imageUrl || '/placeholder.png'} className="h-12 w-12 object-cover rounded-xl border border-slate-100" />
+                      <img src={product.imageUrl || '/placeholder.png'} className="h-12 w-12 object-cover rounded-xl border border-slate-100 shadow-sm" />
                       <div>
-                        <h4 className="font-bold text-slate-700">{product.name}</h4>
-                        <p className="text-xs text-blue-600 font-bold bg-blue-50 inline-block px-2 py-0.5 rounded-md mt-1">
-                          Rp {product.price.toLocaleString()}
-                        </p>
+                        <h4 className="font-black text-slate-700 uppercase italic tracking-tighter">{product.name}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[9px] font-black bg-blue-50 text-blue-600 px-2 py-0.5 rounded uppercase">
+                            {product.category?.name || 'Item'}
+                          </span>
+                          <p className="text-xs text-slate-400 font-bold italic">
+                            Rp {product.price.toLocaleString()}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -192,7 +203,7 @@ export default function ProductManagementPage() {
                       </button>
                       <input 
                         type="number"
-                        className="w-16 bg-transparent text-center font-black text-slate-800 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-16 bg-transparent text-center font-black text-slate-800 outline-none"
                         value={product.stock}
                         onChange={(e) => handleUpdateStock(product.id, parseInt(e.target.value) || 0)}
                       />
@@ -207,7 +218,7 @@ export default function ProductManagementPage() {
                         <Edit size={18}/>
                       </button>
                       <button 
-                        onClick={() => { if(confirm("Hapus produk?")) api.delete(`/products/${product.id}`).then(() => refetch()); }} 
+                        onClick={() => { if(confirm(`Hapus ${product.name}?`)) api.delete(`/products/${product.id}`).then(() => refetch()); }} 
                         className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                       >
                         <Trash2 size={18}/>
@@ -217,8 +228,8 @@ export default function ProductManagementPage() {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={3} className="px-6 py-20 text-center text-slate-400 font-medium">
-                    Tidak ada produk yang sesuai dengan kriteria
+                  <td colSpan={3} className="px-6 py-20 text-center text-slate-400 font-black italic uppercase tracking-widest">
+                    Tidak ada produk ditemukan
                   </td>
                 </tr>
               )}
@@ -228,7 +239,7 @@ export default function ProductManagementPage() {
 
         {/* PAGINATION */}
         <div className="flex items-center justify-between px-6 py-4 bg-slate-50/50 border-t border-slate-100">
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
             Hal. {meta?.page} / {meta?.totalPages || 1}
           </p>
           <div className="flex items-center gap-2">
@@ -266,9 +277,22 @@ export default function ProductManagementPage() {
         </div>
       </div>
 
-      {isModalOpen && <AddProductModal onClose={() => setIsModalOpen(false)} onRefresh={refetch} />}
+      {/* MODALS */}
+      <CategoryManagementModal 
+        isOpen={isCategoryModalOpen} 
+        onClose={() => setIsCategoryModalOpen(false)} 
+      />
+      
+      {isModalOpen && (
+        <AddProductModal onClose={() => setIsModalOpen(false)} onRefresh={refetch} />
+      )}
+      
       {editingProduct && (
-        <EditProductModal product={editingProduct} onClose={() => setEditingProduct(null)} onRefresh={refetch} />
+        <EditProductModal 
+          product={editingProduct} 
+          onClose={() => setEditingProduct(null)} 
+          onRefresh={refetch} 
+        />
       )}
     </div>
   );

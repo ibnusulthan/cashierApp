@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useProducts, useCategories } from '@/hooks/useAdminDashboard.ts';
+import { useProducts, useCategories } from '@/hooks/useAdminDashboard';
 import { 
   useCreateTransaction, 
   useCompleteTransaction, 
@@ -28,7 +28,7 @@ import { useQueryClient } from '@tanstack/react-query';
 export default function POSContainer({ shiftId }: { shiftId: string }) {
   // --- HOOKS ---
   const queryClient = useQueryClient();
-  const { data: productsData, isLoading: prodLoading } = useProducts();
+  const { data: productsData, isLoading: prodLoading } = useProducts({ limit: 200 });
   const { data: categoriesData } = useCategories();
   
   const createTx = useCreateTransaction();
