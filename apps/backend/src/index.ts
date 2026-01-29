@@ -13,11 +13,33 @@ import userRoutes from "@/modules/user/user.route";
 import transactionRouter from "@/modules/transaction/transaction.route"
 
 const app = express();
+const allowedOrigins = [
+  "http://localhost:3000",                  
+  process.env.FRONTEND_URL,                // URL Vercel (nanti diisi di .env backend)
+  /\.vercel\.app$/                         // Mengizinkan semua subdomain vercel.app (opsional tapi berguna)
+].filter(Boolean) as (string | RegExp)[];
 
 // ===== SECURITY + PERFORMANCE MIDDLEWARE =====
 app.use(helmet());
 app.use(compression());
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // Izinkan request tanpa origin (seperti mobile apps atau curl)
+    if (!origin) return callback(null, true);
+    
+    const isAllowed = allowedOrigins.some((allowed) => {
+      if (allowed instanceof RegExp) return allowed.test(origin);
+      return allowed === origin;
+    });
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true, // WAJIB true karena cookie-parser
+}));
 app.use(cookieParser());
 app.use(morgan("dev"));
 app.use(express.json());
