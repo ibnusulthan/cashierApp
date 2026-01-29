@@ -2,7 +2,7 @@
 
 import { deleteCookie } from 'cookies-next';
 import { useRouter, usePathname } from 'next/navigation';
-import { LogOut, Bell, User } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 
 export default function Topbar() {
   const router = useRouter();
@@ -10,43 +10,42 @@ export default function Topbar() {
 
   const handleLogout = () => {
     deleteCookie('token');
-    router.push('/login');
+    router.push('/');
   };
 
-  // Logic title otomatis berdasarkan URL
   const getTitle = () => {
     if (pathname.includes('/products')) return 'Product Management';
     if (pathname.includes('/users')) return 'User Management';
     if (pathname.includes('/dailyitems')) return 'Daily Items Sale';
     if (pathname.includes('/shifts')) return 'Shift Reports';
-    if (pathname.includes('/cashier')) return 'Cashier';
+    if (pathname.includes('/cashier')) return 'Cashier Dashboard';
 
     return 'Male POS';
   };
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-100 bg-white px-8">
-      <h2 className="font-semibold tracking-tight text-gray-800">
-        {getTitle()}
-      </h2>
-
+    // Tinggi dikurangi dari h-20 ke h-16, padding vertical dikurangi
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-100 bg-white/80 backdrop-blur-md px-8 shadow-sm">
+      
+      {/* Title Dashboard - Ukuran teks dikecilkan sedikit dan garis bawah ditipiskan */}
       <div className="flex items-center gap-4">
-        <button className="p-2 text-gray-400 transition-colors hover:text-gray-600">
-          <Bell size={20} />
-        </button>
-        <div className="mx-2 h-8 w-[1px] bg-gray-100" />
-        <div className="mr-4 flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-            <User size={18} />
-          </div>
-          <span className="text-sm font-medium text-gray-700"></span>
+        <div>
+          <h2 className="text-lg font-black italic tracking-tighter text-slate-800 uppercase leading-none">
+            {getTitle()}
+          </h2>
+          {/* Garis biru dibuat lebih tipis (h-0.5) dan jaraknya dikurangi (mt-0.5) */}
+          <div className="h-0.5 w-6 bg-blue-600 rounded-full mt-0.5" />
         </div>
+      </div>
+
+      {/* Action Area - Ukuran tombol diperkecil sedikit */}
+      <div className="flex items-center gap-3">
         <button
           onClick={handleLogout}
-          className="hover:bg-red-250 flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium text-red-600 transition-all"
+          className="group flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-500 transition-all hover:bg-red-50 hover:border-red-200 active:scale-95"
         >
-          <LogOut size={18} />
-          Logout
+          <LogOut size={14} className="transition-transform group-hover:-translate-x-1" />
+          <span>Logout</span>
         </button>
       </div>
     </header>

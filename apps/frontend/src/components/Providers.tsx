@@ -1,10 +1,10 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // Tambahkan ini
 import { useState } from "react";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  // Kita gunakan useState agar QueryClient tidak dibuat ulang setiap render
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
@@ -17,6 +17,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
+      <ReactQueryDevtools initialIsOpen={false} /> {/* Tambahkan ini */}
     </QueryClientProvider>
   );
 }

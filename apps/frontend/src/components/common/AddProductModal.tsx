@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { api } from '@/lib/axios';
 import { toast } from 'react-hot-toast';
 import { getCategories } from '@/lib/api/admin';
-import { useCategories } from '@/hooks/useAdminDashboard.ts';
+import { useCategories } from '@/hooks/useAdminDashboard';
 
 export function AddProductModal({
   onClose,

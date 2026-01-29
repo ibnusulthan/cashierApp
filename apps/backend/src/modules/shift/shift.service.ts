@@ -138,7 +138,7 @@ export const getAllShiftsService = async (
     sortBy,
     sortOrder,
     page = 1,
-    pageSize = 20,
+    pageSize = 10,
   } = options;
 
   const where: any = {};

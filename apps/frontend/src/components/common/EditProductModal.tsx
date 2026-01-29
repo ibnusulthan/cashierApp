@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { X, Upload, Loader2 } from "lucide-react";
 import { api } from "@/lib/axios";
 import { toast } from "react-hot-toast";
-import { useCategories } from "@/hooks/useAdminDashboard.ts";
+import { useCategories } from "@/hooks/useAdminDashboard";
 import { Products } from "@/types/interface";
 
 interface EditProductModalProps {

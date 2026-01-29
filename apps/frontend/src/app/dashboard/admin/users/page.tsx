@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useUsers } from '@/hooks/useAdminDashboard'; 
 import { Search, UserPlus, Edit, Trash2, Loader2, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -9,14 +9,14 @@ import { toast } from 'react-hot-toast';
 import { EditCashierModal } from '@/components/common/EditCashierModal';
 import { AddCashierModal } from '@/components/common/AddCashierModal';
 
-export default function CashierManagementPage() {
+function CashierManagementContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   // State untuk Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false); // State baru untuk Tambah
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false); 
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const currentSearch = searchParams.get('search') || '';
@@ -65,7 +65,12 @@ export default function CashierManagementPage() {
     }
   };
 
-  if (isLoading) return <div className="flex h-96 items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={40} /></div>;
+  if (isLoading && !data) return (
+    <div className="flex h-96 items-center justify-center flex-col gap-4">
+      <Loader2 className="animate-spin text-blue-600" size={40} />
+      <p className="text-sm font-bold text-slate-400 uppercase italic">Memuat Data Kasir...</p>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -74,7 +79,6 @@ export default function CashierManagementPage() {
           <h1 className="text-2xl font-bold text-slate-800">Manajemen Kasir</h1>
           <p className="text-slate-500">Daftar akun kasir yang aktif dalam sistem</p>
         </div>
-        {/* AKTIFKAN TOMBOL TAMBAH DI SINI */}
         <button 
           onClick={() => setIsAddModalOpen(true)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all active:scale-95"
@@ -170,15 +174,30 @@ export default function CashierManagementPage() {
 
       {/* Modals */}
       {isAddModalOpen && (
-        <AddCashierModal onClose={() => setIsAddModalOpen(false)} />
+        <AddCashierModal onClose={() => { setIsAddModalOpen(false); refetch(); }} />
       )}
       
       {isEditModalOpen && selectedUser && (
         <EditCashierModal 
           user={selectedUser} 
-          onClose={() => { setIsEditModalOpen(false); setSelectedUser(null); }} 
+          onClose={() => { setIsEditModalOpen(false); setSelectedUser(null); refetch(); }} 
         />
       )}
     </div>
+  );
+}
+
+export default function CashierManagementPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="text-center space-y-4">
+          <Loader2 className="animate-spin text-blue-600 mx-auto" size={40} />
+          <p className="text-xs font-black uppercase tracking-widest text-slate-400 italic">Initializing User Management...</p>
+        </div>
+      </div>
+    }>
+      <CashierManagementContent />
+    </Suspense>
   );
 }

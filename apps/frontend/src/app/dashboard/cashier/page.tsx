@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useActiveShift, useCreateShift, useCloseShift, useShiftDetail } from '@/hooks/useCashier'; // Tambah useShiftDetail
+import { useState, useMemo, useEffect } from 'react';
+import { useActiveShift, useCreateShift, useCloseShift, useShiftDetail } from '@/hooks/useCashier';
 import { Wallet, Play, Loader2, LogOut, Info, User } from 'lucide-react'; 
 import { formatCurrency } from '@/lib/utils';
 import POSContainer from '@/components/cashier/POSContainer';
-import TransactionHistoryModal from '@/components/cashier/TransactionHistoryModal'; // Impor Modal
+import TransactionHistoryModal from '@/components/cashier/TransactionHistoryModal'; 
 import { toast } from 'react-hot-toast';
 
 export default function CashierDashboardPage() {
@@ -17,16 +17,28 @@ export default function CashierDashboardPage() {
   
   const [cashStart, setCashStart] = useState('');
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false); // State Modal History
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [cashEnd, setCashEnd] = useState('');
 
-  // Hook untuk mengambil detail transaksi di shift ini
+  // --- LOCK SCROLL LOGIC ---
+  useEffect(() => {
+    // Kunci scroll jika modal history ATAU modal tutup shift terbuka
+    if (showHistoryModal || showCloseModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showHistoryModal, showCloseModal]);
+
   const { data: detailData, isLoading: isDetailLoading, refetch: refetchHistory } = useShiftDetail(activeShift?.id || null);
 
   const handleOpenHistory = () => {
     setShowHistoryModal(true);
     refetchHistory();
-  }
+  };
 
   const shiftRevenue = useMemo(() => {
     if (!activeShift?.transactions) return 0;
@@ -62,7 +74,6 @@ export default function CashierDashboardPage() {
   );
 
   if (!activeShift) {
-    // ... UI Buka Shift tetap sama
     return (
         <div className="h-[80vh] flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-white rounded-[40px] shadow-2xl border border-slate-100 overflow-hidden">
@@ -121,7 +132,6 @@ export default function CashierDashboardPage() {
             <p className="font-bold text-blue-600">{formatCurrency(shiftRevenue)}</p>
           </div>
           
-          {/* TOMBOL INFO SEKARANG MEMBUKA MODAL */}
           <button 
             onClick={handleOpenHistory}
             className="p-3 bg-slate-50 text-slate-600 rounded-2xl hover:bg-slate-100 transition-colors"
@@ -151,13 +161,13 @@ export default function CashierDashboardPage() {
         isLoading={isDetailLoading}
       />
 
-      {/* MODAL TUTUP SHIFT TETAP SAMA */}
+      {/* MODAL TUTUP SHIFT */}
       {showCloseModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
-          <div className="bg-white w-full max-md rounded-[40px] shadow-2xl overflow-hidden">
+          <div className="bg-white w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-8 text-center border-b border-slate-50">
               <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter italic">Akhiri Shift</h3>
-              <p className="text-sm text-slate-500">Masukkan total uang fisik (cash) yang ada di laci.</p>
+              <p className="text-sm text-slate-500 font-medium">Masukkan total uang fisik (cash) yang ada di laci.</p>
             </div>
             
             <div className="p-8 space-y-6">
@@ -168,18 +178,18 @@ export default function CashierDashboardPage() {
                   value={cashEnd}
                   onChange={(e) => setCashEnd(e.target.value)}
                   placeholder="0"
-                  className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-3xl text-2xl font-black focus:border-red-500 outline-none"
+                  className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-3xl text-2xl font-black focus:border-red-500 outline-none italic"
                 />
               </div>
 
               <div className="flex gap-3">
-                <button onClick={() => setShowCloseModal(false)} className="flex-1 py-4 font-bold text-slate-400">Batal</button>
+                <button onClick={() => setShowCloseModal(false)} className="flex-1 py-4 font-bold text-slate-400 hover:text-slate-600">Batal</button>
                 <button 
                   onClick={handleCloseShift}
                   disabled={closeShiftMutation.isPending}
-                  className="flex-[2] bg-slate-900 text-white py-4 rounded-[24px] font-black uppercase tracking-widest hover:bg-red-600 transition-all"
+                  className="flex-[2] bg-slate-900 text-white py-4 rounded-[24px] font-black uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg active:scale-95"
                 >
-                  {closeShiftMutation.isPending ? <Loader2 className="animate-spin" /> : "Selesai"}
+                  {closeShiftMutation.isPending ? <Loader2 className="animate-spin mx-auto" /> : "Selesai"}
                 </button>
               </div>
             </div>

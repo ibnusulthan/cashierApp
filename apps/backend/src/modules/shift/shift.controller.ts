@@ -117,8 +117,11 @@ export const getActiveShift = async (req: Request, res: Response) => {
 
 export const getAllShiftsAdmin = async (req: Request, res: Response) => {
   try {
-    // Ambil query params
     const options: GetAllShiftsOptions = {
+      page: req.query.page ? parseInt(req.query.page as string) : 1,
+      pageSize: req.query.limit 
+        ? parseInt(req.query.limit as string) 
+        : (req.query.pageSize ? parseInt(req.query.pageSize as string) : 10),
       cashierId: req.query.cashierId as string,
       startDate: req.query.startDate as string,
       endDate: req.query.endDate as string,
@@ -129,9 +132,9 @@ export const getAllShiftsAdmin = async (req: Request, res: Response) => {
       sortOrder: req.query.sortOrder as 'asc' | 'desc',
     };
 
-    const shifts = await getAllShiftsService(options);
+    const result = await getAllShiftsService(options);
 
-    res.json({ shifts });
+    res.json(result); 
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Internal server error' });
