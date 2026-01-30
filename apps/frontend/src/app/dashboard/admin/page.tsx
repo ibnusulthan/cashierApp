@@ -136,7 +136,7 @@ function DashboardContent() {
           </p>
         </div>
 
-        <div className="rounded-[24px] bg-amber-400 p-6 shadow-xl shadow-amber-100 cursor-pointer hover:bg-amber-500 transition-all group" onClick={() => router.push('/dashboard/admin/reports/shifts')}>
+        <div className="rounded-[24px] bg-amber-400 p-6 shadow-xl shadow-amber-100 cursor-pointer hover:bg-amber-500 transition-all group" onClick={() => router.push('/dashboard/admin/reports/shifts?isMismatch=true&page=1')}>
           <div className="flex items-center gap-4 mb-4">
             <div className="p-3 bg-white/20 rounded-2xl text-amber-900"><AlertTriangle size={22}/></div>
             <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">Audit Status</p>
