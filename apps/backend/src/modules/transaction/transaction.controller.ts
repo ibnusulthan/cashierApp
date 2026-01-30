@@ -230,24 +230,23 @@ export const getTransactionsByActiveShift = async (
 
 export const getAllTransactions = async (req: Request, res: Response) => {
   try {
-    const {
-      cashierId,
-      paymentType,
-      startDate,
-      endDate,
-      isMismatch,
-      sortBy,
-      sortOrder,
-    } = req.query;
+    // 1. Ambil query satu per satu dengan casting 'as string'
+    const qCashierId = req.query.cashierId as string;
+    const qPaymentType = req.query.paymentType as string;
+    const qStartDate = req.query.startDate as string;
+    const qEndDate = req.query.endDate as string;
+    const qIsMismatch = req.query.isMismatch as string;
+    const qSortBy = req.query.sortBy as string;
+    const qSortOrder = req.query.sortOrder as string;
 
     const transactions = await getAllTransactionsService({
-      cashierId: cashierId as string | undefined,
-      paymentType: paymentType as 'CASH' | 'DEBIT' | undefined,
-      startDate: startDate as string | undefined,
-      endDate: endDate as string | undefined,
-      isMismatch: isMismatch !== undefined ? isMismatch === 'true' : undefined,
-      sortBy: sortBy as 'totalAmount' | 'createdAt' | undefined,
-      sortOrder: sortOrder as 'asc' | 'desc' | undefined,
+      cashierId: qCashierId,
+      paymentType: qPaymentType as 'CASH' | 'DEBIT' | undefined,
+      startDate: qStartDate,
+      endDate: qEndDate,
+      isMismatch: qIsMismatch !== undefined ? qIsMismatch === 'true' : undefined,
+      sortBy: qSortBy as 'totalAmount' | 'createdAt' | undefined,
+      sortOrder: qSortOrder as 'asc' | 'desc' | undefined,
     });
 
     res.json({ transactions });
@@ -257,18 +256,17 @@ export const getAllTransactions = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Endpoint: GET /api/transactions/reports/daily?date=2023-10-27
- */
 export const getDailyItemReport = async (req: Request, res: Response) => {
   try {
-    const { date } = req.query;
+    // 2. Gunakan 'as string' untuk date
+    const date = req.query.date as string;
+    
     if (!date) {
       res.status(400).json({ message: "Date parameter is required (YYYY-MM-DD)" });
       return;
     }
 
-    const report = await getDailyItemSalesService(date as string);
+    const report = await getDailyItemSalesService(date);
     res.json({
       message: `Daily report for ${date}`,
       data: report
@@ -278,9 +276,6 @@ export const getDailyItemReport = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Endpoint: GET /api/transactions/reports/summary
- */
 export const getDashboardSummary = async (req: Request, res: Response) => {
   try {
     const summary = await getAdminDashboardSummaryService();

@@ -5,10 +5,14 @@ import { createProductSchema, updateProductSchema } from './product.validation';
 import cloudinary from '@/utils/cloudinary';
 
 export const getProducts = async (req: Request, res: Response) => {
-  const { search, category, sort, page = "1", limit = "10" } = req.query;
+  const search = req.query.search as string;
+  const category = req.query.category as string;
+  const sort = req.query.sort as string;
+  const page = (req.query.page as string) || '1';
+  const limit = (req.query.limit as string) || '10';
 
-  const pageNum = parseInt(String(page)) || 1;
-  const limitNum = parseInt(String(limit)) || 10;
+  const pageNum = parseInt(page) || 1;
+  const limitNum = parseInt(limit) || 10;
   const skip = (pageNum - 1) * limitNum;
 
   // Definisikan tipe condition secara eksplisit agar TS tidak komplain
@@ -52,7 +56,7 @@ export const getProducts = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: "Gagal mengambil data produk" });
+    res.status(500).json({ message: 'Gagal mengambil data produk' });
   }
 };
 
@@ -166,7 +170,11 @@ export const updateProduct = async (
     });
 
     if (duplicate) {
-      res.status(400).json({ message: 'Product with this name already exists in this category' });
+      res
+        .status(400)
+        .json({
+          message: 'Product with this name already exists in this category',
+        });
       return;
     }
   }
@@ -208,9 +216,9 @@ export const updateProduct = async (
           create: {
             change: stockChange,
             reason: 'Manual update by Admin',
-          }
-        }
-      })
+          },
+        },
+      }),
     },
   });
 
@@ -243,18 +251,23 @@ export const deleteProduct = async (
   res.json({ message: 'Product soft deleted' });
 };
 
-export const getStockHistories = async (req: Request, res: Response): Promise<void> => {
+export const getStockHistories = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    const { productId, startDate, endDate } = req.query;
+    const productId = req.query.productId as string;
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
 
     const histories = await prisma.stockHistory.findMany({
       where: {
-        ...(productId && { productId: String(productId) }),
+        ...(productId && { productId: productId }),
         ...(startDate || endDate
           ? {
               createdAt: {
-                gte: startDate ? new Date(startDate as string) : undefined,
-                lte: endDate ? new Date(endDate as string) : undefined,
+                gte: startDate ? new Date(startDate) : undefined,
+                lte: endDate ? new Date(endDate) : undefined,
               },
             }
           : {}),
@@ -273,10 +286,10 @@ export const getStockHistories = async (req: Request, res: Response): Promise<vo
     });
 
     res.json({
-      message: "Stock histories fetched successfully",
-      data: histories
+      message: 'Stock histories fetched successfully',
+      data: histories,
     });
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch stock histories" });
+    res.status(500).json({ message: 'Failed to fetch stock histories' });
   }
 };

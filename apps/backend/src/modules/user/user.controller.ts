@@ -10,14 +10,15 @@ import { createUserSchema, userIdParamSchema } from "./user.validation";
 import { updateUserSchema } from "./user.validation";
 
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
-  const { search, page, limit } = req.query;
+  const qSearch = req.query.search as string;
+  const qPage = req.query.page as string;
+  const qLimit = req.query.limit as string;
 
-  // Pastikan konversi ke Number menghasilkan angka valid, jika tidak gunakan default
-  const pageNum = parseInt(page as string) || 1;
-  const limitNum = parseInt(limit as string) || 10;
+  const pageNum = parseInt(qPage) || 1;
+  const limitNum = parseInt(qLimit) || 10;
 
   const result = await getActiveUsersService({
-    search: search as string,
+    search: qSearch,
     page: pageNum,
     limit: limitNum,
   });

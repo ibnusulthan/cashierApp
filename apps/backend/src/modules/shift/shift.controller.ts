@@ -117,23 +117,28 @@ export const getActiveShift = async (req: Request, res: Response) => {
 
 export const getAllShiftsAdmin = async (req: Request, res: Response) => {
   try {
+    const qPage = req.query.page as string;
+    const qLimit = req.query.limit as string;
+    const qPageSize = req.query.pageSize as string;
+    const qCashierId = req.query.cashierId as string;
+    const qStartDate = req.query.startDate as string;
+    const qEndDate = req.query.endDate as string;
+    const qIsMismatch = req.query.isMismatch as string;
+    const qSortBy = req.query.sortBy as string;
+    const qSortOrder = req.query.sortOrder as string;
+
     const options: GetAllShiftsOptions = {
-      page: req.query.page ? parseInt(req.query.page as string) : 1,
-      pageSize: req.query.limit 
-        ? parseInt(req.query.limit as string) 
-        : (req.query.pageSize ? parseInt(req.query.pageSize as string) : 10),
-      cashierId: req.query.cashierId as string,
-      startDate: req.query.startDate as string,
-      endDate: req.query.endDate as string,
-      isMismatch: req.query.isMismatch
-        ? req.query.isMismatch === 'true'
-        : undefined,
-      sortBy: req.query.sortBy as 'totalTransactions' | 'openedAt' | 'closedAt',
-      sortOrder: req.query.sortOrder as 'asc' | 'desc',
+      page: qPage ? parseInt(qPage) : 1,
+      pageSize: qLimit ? parseInt(qLimit) : (qPageSize ? parseInt(qPageSize) : 10),
+      cashierId: qCashierId,
+      startDate: qStartDate,
+      endDate: qEndDate,
+      isMismatch: qIsMismatch ? qIsMismatch === 'true' : undefined,
+      sortBy: qSortBy as 'totalTransactions' | 'openedAt' | 'closedAt',
+      sortOrder: qSortOrder as 'asc' | 'desc',
     };
 
     const result = await getAllShiftsService(options);
-
     res.json(result); 
   } catch (error) {
     console.error(error);
@@ -144,28 +149,25 @@ export const getAllShiftsAdmin = async (req: Request, res: Response) => {
 export const getShiftDetail = async (req: Request, res: Response) => {
   try {
     const shiftId = req.params.id;
-    if (!shiftId)
-      return res.status(400).json({ message: 'Shift ID is required' });
+    if (!shiftId) return res.status(400).json({ message: 'Shift ID is required' });
 
-    // Ambil query params untuk pagination & filter
-    const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 10;
-    const statusQuery = req.query.status as string | undefined;
-    const paymentQuery = req.query.paymentType as string | undefined;
+    // Gunakan casting eksplisit 'as string'
+    const qPage = req.query.page as string;
+    const qPageSize = req.query.pageSize as string;
+    const statusQuery = req.query.status as string;
+    const paymentQuery = req.query.paymentType as string;
 
-    // Type-safe cast
+    const page = parseInt(qPage) || 1;
+    const pageSize = parseInt(qPageSize) || 10;
+
     let statusFilter: 'PENDING' | 'COMPLETED' | 'CANCELED' | undefined;
-    if (
-      statusQuery === 'PENDING' ||
-      statusQuery === 'COMPLETED' ||
-      statusQuery === 'CANCELED'
-    ) {
-      statusFilter = statusQuery;
+    if (['PENDING', 'COMPLETED', 'CANCELED'].includes(statusQuery)) {
+      statusFilter = statusQuery as 'PENDING' | 'COMPLETED' | 'CANCELED';
     }
 
     let paymentFilter: 'CASH' | 'DEBIT' | undefined;
-    if (paymentQuery === 'CASH' || paymentQuery === 'DEBIT') {
-      paymentFilter = paymentQuery;
+    if (['CASH', 'DEBIT'].includes(paymentQuery)) {
+      paymentFilter = paymentQuery as 'CASH' | 'DEBIT';
     }
 
     const shiftDetail = await getShiftDetailService({
@@ -176,8 +178,7 @@ export const getShiftDetail = async (req: Request, res: Response) => {
       paymentFilter,
     });
 
-    if (!shiftDetail)
-      return res.status(404).json({ message: 'Shift not found' });
+    if (!shiftDetail) return res.status(404).json({ message: 'Shift not found' });
 
     res.json(shiftDetail);
   } catch (error) {
