@@ -32,7 +32,7 @@ export function ProductTable({
               <tr key={product.id} className="hover:bg-blue-50/30 group transition-colors">
                 <td className="px-8 py-5">
                   <div className="flex items-center gap-4">
-                    <img src={product.imageUrl || 'placeholder.svg'} className="h-14 w-14 object-cover rounded-2xl bg-slate-100" />
+                    <img src={product.imageUrl || 'https://community.softr.io/uploads/db9110/original/2X/7/74e6e7e382d0ff5d7773ca9a87e6f6f8817a68a6.jpeg'} className="h-14 w-14 object-cover rounded-2xl bg-slate-100" />
                     <div>
                       <h4 className="font-black text-slate-700 uppercase italic tracking-tighter">{product.name}</h4>
                       <p className="text-xs text-blue-600 font-black italic">Rp {product.price.toLocaleString()}</p>
