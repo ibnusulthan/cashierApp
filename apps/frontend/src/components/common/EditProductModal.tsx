@@ -24,6 +24,7 @@ export function EditProductModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Inisialisasi form dengan data produk yang sudah ada
+  // Gunakan useRef instead useState karena untuk buat seamless jika banyak form
   const [formData, setFormData] = useState({
     name: product.name,
     price: product.price.toString(),
